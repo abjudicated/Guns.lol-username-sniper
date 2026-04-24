@@ -1,5 +1,8 @@
 # guns.lol checker
 
+<p align="center">
+  <img src="xpsniped.png" width="500"/>
+</p>
 A simple, fast, and multi-threaded username checker for guns.lol.
 
 Dev: abjudicated
