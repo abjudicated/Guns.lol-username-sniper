@@ -5,7 +5,7 @@
 </p>
 A simple, fast, and multi-threaded username checker for guns.lol.
 
-Dev: abjudicated
+Dev: d0nf
 
 ## Features
 - Fast checking with threading
@@ -25,3 +25,5 @@ Start the script:
 python xpsniper.py
 ```
 Then just answer the prompts in the terminal to set your webhook, username length, and how many you want to generate.
+
+Note : I'm just a small developer, don't attack me if there are errors and bugs pls (PS: I'm not English, I tried to translate the tool but I don't think it's quite right)
