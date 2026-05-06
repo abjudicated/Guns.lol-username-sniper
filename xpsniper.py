@@ -6,8 +6,61 @@ import sys
 import os
 import threading
 from colorama import init, Fore, Style
+from urllib.parse import urlparse
 
 init(autoreset=True)
+
+def load_proxies():
+    """Load proxies from proxies.txt file"""
+    proxy_file = os.path.join(os.path.dirname(__file__), 'proxies.txt')
+    proxies = []
+    
+    try:
+        with open(proxy_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    proxies.append(line)
+        
+        if not proxies:
+            print(f"{Fore.RED}[!] No proxies found in {proxy_file}")
+            return None
+            
+        print(f"{Fore.GREEN}[+] {len(proxies)} proxies loaded")
+        return proxies
+        
+    except FileNotFoundError:
+        print(f"{Fore.RED}[!] Proxy file not found: {proxy_file}")
+        return None
+    except Exception as e:
+        print(f"{Fore.RED}[!] Error loading proxies: {e}")
+        return None
+
+def get_random_proxy(proxies_list):
+    """Return random proxy from list"""
+    if not proxies_list:
+        return None
+    return random.choice(proxies_list)
+
+def format_proxy_for_requests(proxy_string):
+    """Format proxy for requests library"""
+    try:
+        parsed = urlparse(proxy_string)
+        if parsed.scheme in ['http', 'https']:
+            return {
+                'http': proxy_string,
+                'https': proxy_string
+            }
+        elif parsed.scheme in ['socks4', 'socks5']:
+            # for socks proxies
+            return {
+                'http': proxy_string,
+                'https': proxy_string
+            }
+        return None
+    except Exception as e:
+        print(f"{Fore.YELLOW}[!] Proxy formatting error {proxy_string}: {e}")
+        return None
 
 BANNER = f"""
 {Fore.RED}██╗  ██╗██████╗ ███████╗███╗   ██╗██╗██████╗ ███████╗██████╗ 
@@ -16,7 +69,7 @@ BANNER = f"""
 {Fore.RED} ██╔██╗ ██╔═══╝ ╚════██║██║╚██╗██║██║██╔═══╝ ██╔══╝  ██║  ██║
 {Fore.RED}██╔╝ ██╗██║     ███████║██║ ╚████║██║██║     ███████╗██████╔╝
 {Fore.RED}╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚═════╝ 
-{Fore.RED}    >> DEV BY abjudicated <<       >> USERNAME SNIPER <<
+{Fore.RED}    >> DEV BY @d0nf<<       >> GUNS USERNAME SNIPER <<
 {Style.RESET_ALL}
 """
 
@@ -32,15 +85,22 @@ def generate_username(total_length, digits_count):
     random.shuffle(chars)
     return ''.join(chars)
 
-def check_username(username, session):
+def check_username(username, session, proxies_list):
     url = f"https://guns.lol/{username}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
     }
     
-    for _ in range(3): # Max 3 retries
+    for attempt in range(2):
         try:
-            response = session.get(url, headers=headers, timeout=5)
+            # Choose random proxy
+            proxy_dict = None
+            if proxies_list:
+                proxy_string = get_random_proxy(proxies_list)
+                if proxy_string:
+                    proxy_dict = format_proxy_for_requests(proxy_string)
+            
+            response = session.get(url, headers=headers, proxies=proxy_dict, timeout=3)
             
             if response.status_code == 200:
                 if ">Username not found<" in response.text:
@@ -48,11 +108,10 @@ def check_username(username, session):
                 else:
                     return username, False
             elif response.status_code == 429:
-                time.sleep(2)  # Rate limit pause
+                time.sleep(0.5)  # Shorter pause
                 continue
             elif response.status_code in [403, 503]:
-                # Cloudflare block, wait
-                time.sleep(2)
+                time.sleep(1)  # Shorter pause
                 continue
             else:
                 # 404 means available
@@ -60,11 +119,33 @@ def check_username(username, session):
                     return username, True
                 return username, False
                 
-        except Exception:
-            time.sleep(1)
+        except requests.exceptions.ConnectTimeout:
+            if attempt == 1: 
+                print(f"{Fore.YELLOW}[!] Connection timeout for {username}")
+            time.sleep(0.05)
+            continue
+        except requests.exceptions.ConnectionError:
+            if attempt == 1:
+                print(f"{Fore.YELLOW}[!] Connection error for {username}")
+            time.sleep(0.05)
+            continue
+        except requests.exceptions.RequestException:
+            if attempt == 1:
+                print(f"{Fore.YELLOW}[!] Request error for {username}")
+            time.sleep(0.05)
+            continue
+        except Exception as e:
+            error_msg = str(e).lower()
+            
+            if attempt == 1: 
+                if "proxy" in error_msg or "socks" in error_msg:
+                    print(f"{Fore.RED}[!] Proxy error for {username}")
+                elif "timeout" in error_msg:
+                    print(f"{Fore.YELLOW}[!] Timeout for {username}")
+            time.sleep(0.05)
             continue
             
-    return username, False # Skip if failed 3 times
+    return username, False # Skip if failed 2 times
 
 def send_to_webhook(webhook_url, username):
     if not webhook_url:
@@ -103,10 +184,10 @@ class UsernameGenerator:
                     return uname
                 attempts += 1
                 
-            # Stop if stuck
+            # Stop
             return None
 
-def worker(generator, webhook_url, counter_lock, stats):
+def worker(generator, webhook_url, counter_lock, stats, proxies_list):
     session = requests.Session()
     while True:
         uname = generator.get_next()
@@ -114,9 +195,9 @@ def worker(generator, webhook_url, counter_lock, stats):
             break
             
         try:
-            uname_result, is_valid = check_username(uname, session)
+            uname_result, is_valid = check_username(uname, session, proxies_list)
             
-            # Send to Discord in bg
+            # Send to Discord
             if is_valid:
                 threading.Thread(target=send_to_webhook, args=(webhook_url, uname_result), daemon=True).start()
                 
@@ -134,7 +215,7 @@ def worker(generator, webhook_url, counter_lock, stats):
             with counter_lock:
                 print(Fore.RED + f"[!] Error checking {uname}: {e}")
                 
-        time.sleep(0.1)  # Delay to save your internet connection
+        time.sleep(0.02)  # Very short delay
 
 def main():
     if os.name == 'nt':
@@ -144,6 +225,24 @@ def main():
         os.system('clear')
         
     print(BANNER)
+    
+    # LOAD PROXIES
+    proxies = load_proxies()
+    use_proxies = True
+    
+    if not proxies:
+        print(f"{Fore.RED}[!] Script will continue without proxies.")
+        use_proxies = False
+    else:
+        print(f"{Fore.YELLOW}[!] Proxies available but disabled by default for speed.")
+        print(Fore.RED + "[?] Use proxies? (y/n, default: n): " + Style.RESET_ALL, end="")
+        choice = input().strip().lower()
+        if choice == 'y' or choice == 'yes':
+            use_proxies = True
+            print(f"{Fore.GREEN}[+] Proxies enabled.")
+        else:
+            use_proxies = False
+            print(f"{Fore.YELLOW}[!] Proxies disabled (fast mode).")
     
     print(Fore.RED + "[?] Enter Webhook URL (leave empty to skip): " + Style.RESET_ALL, end="")
     webhook_url = input().strip()
@@ -179,9 +278,10 @@ def main():
     }
     
     threads = []
-    # 5 threads to save connection
-    for _ in range(5):
-        t = threading.Thread(target=worker, args=(generator, webhook_url, counter_lock, stats))
+    # 10 threads
+    for _ in range(10):
+        proxy_list = proxies if use_proxies else None
+        t = threading.Thread(target=worker, args=(generator, webhook_url, counter_lock, stats, proxy_list))
         t.daemon = True
         t.start()
         threads.append(t)
