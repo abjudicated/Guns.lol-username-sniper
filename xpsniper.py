@@ -69,7 +69,7 @@ BANNER = f"""
 {Fore.RED} ██╔██╗ ██╔═══╝ ╚════██║██║╚██╗██║██║██╔═══╝ ██╔══╝  ██║  ██║
 {Fore.RED}██╔╝ ██╗██║     ███████║██║ ╚████║██║██║     ███████╗██████╔╝
 {Fore.RED}╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚═════╝ 
-{Fore.RED}    >> DEV BY @d0nf<<       >> GUNS USERNAME SNIPER <<
+{Fore.RED}    >> DEV BY @scamforgod <<       >> GUNS USERNAME SNIPER <<
 {Style.RESET_ALL}
 """
 
