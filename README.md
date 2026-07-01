@@ -5,7 +5,7 @@
 </p>
 A simple, fast, and multi-threaded username checker for guns.lol.
 
-Dev: @naoyaski on discord
+Dev: @pachii, discord in bio
 
 ## Features
 - Fast checking with threading
