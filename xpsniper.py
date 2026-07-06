@@ -63,18 +63,20 @@ def format_proxy_for_requests(proxy_string):
         return None
 
 BANNER = f"""
-{Fore.RED}██╗  ██╗██████╗ ███████╗███╗   ██╗██╗██████╗ ███████╗██████╗ 
-{Fore.RED}╚██╗██╔╝██╔══██╗██╔════╝████╗  ██║██║██╔══██╗██╔════╝██╔══██╗
-{Fore.RED} ╚███╔╝ ██████╔╝███████╗██╔██╗ ██║██║██████╔╝█████╗  ██║  ██║
-{Fore.RED} ██╔██╗ ██╔═══╝ ╚════██║██║╚██╗██║██║██╔═══╝ ██╔══╝  ██║  ██║
-{Fore.RED}██╔╝ ██╗██║     ███████║██║ ╚████║██║██║     ███████╗██████╔╝
-{Fore.RED}╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚═════╝ 
-{Fore.RED}    >> DEV BY @pachii <<       >> GUNS USERNAME SNIPER <<
+{Fore.MAGENTA}██╗  ██╗██████╗ ███████╗███╗   ██╗██╗██████╗ ███████╗██████╗ 
+{Fore.MAGENTA}╚██╗██╔╝██╔══██╗██╔════╝████╗  ██║██║██╔══██╗██╔════╝██╔══██╗
+{Fore.MAGENTA} ╚███╔╝ ██████╔╝███████╗██╔██╗ ██║██║██████╔╝█████╗  ██║  ██║
+{Fore.MAGENTA} ██╔██╗ ██╔═══╝ ╚════██║██║╚██╗██║██║██╔═══╝ ██╔══╝  ██║  ██║
+{Fore.MAGENTA}██╔╝ ██╗██║     ███████║██║ ╚████║██║██║     ███████╗██████╔╝
+{Fore.MAGENTA}╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚═════╝ 
+{Fore.MAGENTA}    > @ykgtteh        > sniper.lol 
 {Style.RESET_ALL}
 """
 
-def generate_username(total_length, digits_count):
+def generate_username(total_length, digits_count, separator=None):
     letters_count = total_length - digits_count
+    if separator:
+        letters_count -= 1
     if letters_count < 0:
         letters_count = 0
     
@@ -83,7 +85,23 @@ def generate_username(total_length, digits_count):
     chars.extend(random.choices(string.digits, k=digits_count))
     
     random.shuffle(chars)
-    return ''.join(chars)
+    username = ''.join(chars)
+    
+    if separator:
+        # Choose separator if 'both'
+        if separator == 'both':
+            actual_sep = random.choice(['.', '_'])
+        else:
+            actual_sep = separator
+        
+        # Insert separator at random position (start, middle, or end)
+        if len(username) > 0:
+            pos = random.randint(0, len(username))
+            username = username[:pos] + actual_sep + username[pos:]
+        else:
+            username = actual_sep
+    
+    return username
 
 def check_username(username, session, proxies_list):
     url = f"https://guns.lol/{username}"
@@ -161,10 +179,11 @@ def send_to_webhook(webhook_url, username):
         pass
 
 class UsernameGenerator:
-    def __init__(self, total_length, digits_count, max_count):
+    def __init__(self, total_length, digits_count, max_count, separator=None):
         self.total_length = total_length
         self.digits_count = digits_count
         self.max_count = max_count
+        self.separator = separator
         self.generated = 0
         self.lock = threading.Lock()
         self.seen = set()
@@ -177,7 +196,7 @@ class UsernameGenerator:
             # Find unique username
             attempts = 0
             while attempts < 1000:
-                uname = generate_username(self.total_length, self.digits_count)
+                uname = generate_username(self.total_length, self.digits_count, self.separator)
                 if uname not in self.seen:
                     self.seen.add(uname)
                     self.generated += 1
@@ -210,7 +229,10 @@ def worker(generator, webhook_url, counter_lock, stats, proxies_list):
                     print(Fore.RED + f"[-] Taken: {uname_result}")
                     
                 if stats['checked'] % 50 == 0:
-                    print(Fore.RED + f"[*] Progress: {stats['checked']}/{stats['total']} | Valid found: {len(stats['valid'])}")
+                    print(Fore.MAGENTA + f"[*] Progress: {stats['checked']}/{stats['total']} | Valid found: {len(stats['valid'])}")
+                    if os.name == 'nt':
+                        taken = stats['checked'] - len(stats['valid'])
+                        os.system(f'title xpsniped ^| Available: {len(stats["valid"])} ^| Taken: {taken}')
         except Exception as e:
             with counter_lock:
                 print(Fore.RED + f"[!] Error checking {uname}: {e}")
@@ -220,6 +242,7 @@ def worker(generator, webhook_url, counter_lock, stats, proxies_list):
 def main():
     if os.name == 'nt':
         os.system('color 4')
+        os.system('title xpsniped')
         os.system('cls')
     else:
         os.system('clear')
@@ -231,11 +254,11 @@ def main():
     use_proxies = True
     
     if not proxies:
-        print(f"{Fore.RED}[!] Script will continue without proxies.")
+        print(f"{Fore.MAGENTA}[!] Script will continue without proxies.")
         use_proxies = False
     else:
         print(f"{Fore.YELLOW}[!] Proxies available but disabled by default for speed.")
-        print(Fore.RED + "[?] Use proxies? (y/n, default: n): " + Style.RESET_ALL, end="")
+        print(Fore.MAGENTA + "[?] Use proxies? (y/n, default: n): " + Style.RESET_ALL, end="")
         choice = input().strip().lower()
         if choice == 'y' or choice == 'yes':
             use_proxies = True
@@ -244,32 +267,50 @@ def main():
             use_proxies = False
             print(f"{Fore.YELLOW}[!] Proxies disabled (fast mode).")
     
-    print(Fore.RED + "[?] Enter Webhook URL (leave empty to skip): " + Style.RESET_ALL, end="")
+    print(Fore.MAGENTA + "[?] Enter Webhook URL (leave empty to skip): " + Style.RESET_ALL, end="")
     webhook_url = input().strip()
     
     try:
-        print(Fore.RED + "[?] Total characters in username? (Min 2, Max 32): " + Style.RESET_ALL, end="")
+        print(Fore.MAGENTA + "[?] Total characters in username? (Min 2, Max 32): " + Style.RESET_ALL, end="")
         total_length = int(input())
         if total_length < 2 or total_length > 32:
             print(Fore.RED + "[!] Invalid length. Exiting...")
             sys.exit(1)
             
-        print(Fore.RED + f"[?] How many digits among these {total_length} characters?: " + Style.RESET_ALL, end="")
+        print(Fore.MAGENTA + f"[?] How many digits among these {total_length} characters?: " + Style.RESET_ALL, end="")
         digits_count = int(input())
         if digits_count > total_length:
             print(Fore.RED + "[!] You can't have more digits than the total length. Exiting...")
             sys.exit(1)
             
-        print(Fore.RED + "[?] How many usernames to generate and check?: " + Style.RESET_ALL, end="")
+        print(Fore.MAGENTA + "[?] Separator option:")
+        print(Fore.MAGENTA + "  1 - None")
+        print(Fore.MAGENTA + "  2 - Only dots (.)")
+        print(Fore.MAGENTA + "  3 - Only underscores (_)")
+        print(Fore.MAGENTA + "  4 - Both dots and underscores randomly")
+        print(Fore.MAGENTA + "[?] Choose (1-4): " + Style.RESET_ALL, end="")
+        sep_choice = input().strip()
+        
+        separator = None
+        if sep_choice == '2':
+            separator = '.'
+        elif sep_choice == '3':
+            separator = '_'
+        elif sep_choice == '4':
+            separator = 'both'
+        elif sep_choice != '1':
+            print(Fore.RED + "[!] Invalid choice. Using none.")
+            
+        print(Fore.MAGENTA + "[?] How many usernames to generate and check?: " + Style.RESET_ALL, end="")
         count = int(input())
         
     except ValueError:
         print(Fore.RED + "Invalid input. Please enter numbers.")
         return
 
-    print(Fore.RED + f"\n[*] Starting multi-threaded checks for {count} usernames...\n")
+    print(Fore.MAGENTA + f"\n[*] Starting multi-threaded checks for {count} usernames...\n")
     
-    generator = UsernameGenerator(total_length, digits_count, count)
+    generator = UsernameGenerator(total_length, digits_count, count, separator if separator else None)
     counter_lock = threading.Lock()
     stats = {
         'checked': 0,
@@ -296,9 +337,9 @@ def main():
             break
                 
     print("\n" + "="*50)
-    print(Fore.RED + "🏁 FINISHED!")
-    print(Fore.RED + f"Checked: {stats['checked']}")
-    print(Fore.RED + f"Valid usernames: {len(stats['valid'])}")
+    print(Fore.MAGENTA + "🏁 FINISHED!")
+    print(Fore.MAGENTA + f"Checked: {stats['checked']}")
+    print(Fore.MAGENTA + f"Valid usernames: {len(stats['valid'])}")
     
     if stats['valid']:
         pass # No txt file
